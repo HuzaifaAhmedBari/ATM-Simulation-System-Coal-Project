@@ -19,7 +19,7 @@ mainMenuStr     BYTE    0Dh,0Ah,"1. Customer Portal",0Dh,0Ah, \
 
 custMenuStr     BYTE    0Dh,0Ah,"----- CUSTOMER MENU -----",0Dh,0Ah, \
                        "1. View Balance",0Dh,0Ah, \
-                       "2. Deposit",0Dh,0Ah, \q
+                       "2. Deposit",0Dh,0Ah, \
                        "3. Withdraw",0Dh,0Ah, \
                        "4. Currency Conversion",0Dh,0Ah, \
                        "5. View Current Exchange Rates",0Dh,0Ah, \
