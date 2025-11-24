@@ -2,16 +2,15 @@
 INCLUDE Irvine32.inc
 
 .data
-; ================= DATA (no names collide with code labels) =================
+; ================= DATA =================
 balance         DWORD   10000
 correctPIN      DWORD   1234
 adminPass       DWORD   9999
-
 usdRate         DWORD   280
 eurRate         DWORD   300
 sarRate         DWORD   75
 
-; ================= STRINGS (all end with Str) =================
+; ================= STRINGS =================
 mainTitleStr    BYTE    "===== ATM SYSTEM =====",0
 mainMenuStr     BYTE    0Dh,0Ah,"1. Customer Portal",0Dh,0Ah, \
                        "2. Admin Portal",0Dh,0Ah, \
@@ -23,7 +22,8 @@ custMenuStr     BYTE    0Dh,0Ah,"----- CUSTOMER MENU -----",0Dh,0Ah, \
                        "2. Deposit",0Dh,0Ah, \
                        "3. Withdraw",0Dh,0Ah, \
                        "4. Currency Conversion",0Dh,0Ah, \
-                       "5. Back to Main Menu",0Dh,0Ah, \
+                       "5. View Current Exchange Rates",0Dh,0Ah, \
+                       "6. Back to Main Menu",0Dh,0Ah, \
                        "Choice: ",0
 
 adminMenuStr    BYTE    0Dh,0Ah,"----- ADMIN PORTAL -----",0Dh,0Ah, \
@@ -31,44 +31,45 @@ adminMenuStr    BYTE    0Dh,0Ah,"----- ADMIN PORTAL -----",0Dh,0Ah, \
                        "2. Reset Customer PIN",0Dh,0Ah, \
                        "3. Change Exchange Rates",0Dh,0Ah, \
                        "4. Refill ATM Cash",0Dh,0Ah, \
-                       "5. Back to Main Menu",0Dh,0Ah, \
+                       "5. View Current Exchange Rates",0Dh,0Ah, \
+                       "6. Back to Main Menu",0Dh,0Ah, \
                        "Choice: ",0
 
-msgEnterPINStr  BYTE    "Enter Customer PIN: ",0
-msgEnterAdminStr BYTE   "Enter Admin Password: ",0
-msgBalanceStr   BYTE    "Current Balance (PKR): ",0
-msgDepositStr   BYTE    "Enter Deposit Amount (PKR): ",0
-msgWithdrawStr  BYTE    "Enter Withdraw Amount (PKR): ",0
+msgEnterPINStr   BYTE "Enter Customer PIN: ",0
+msgEnterAdminStr BYTE "Enter Admin Password: ",0
+msgBalanceStr    BYTE "Current Balance (PKR): ",0
+msgDepositStr    BYTE "Enter Deposit Amount (PKR): ",0
+msgWithdrawStr   BYTE "Enter Withdraw Amount (PKR): ",0
+msgNewPINStr     BYTE "Enter new PIN (4 digits): ",0
+msgNewUSDStr     BYTE "Enter new USD rate (PKR per USD): ",0
+msgNewEURStr     BYTE "Enter new EUR rate (PKR per EUR): ",0
+msgNewSARStr     BYTE "Enter new SAR rate (PKR per SAR): ",0
+msgRefillStr     BYTE "Enter refill amount (PKR): ",0
+msgSuccessStr    BYTE "Operation Successful.",0
+msgFailedStr     BYTE "Operation Failed.",0
+msgInsuffStr     BYTE "Insufficient Balance!",0
+msgWrongStr      BYTE "Invalid Password / PIN!",0
 
-msgNewPINStr    BYTE    "Enter new PIN (4 digits): ",0
-msgNewUSDStr    BYTE    "Enter new USD rate (PKR per USD): ",0
-msgNewEURStr    BYTE    "Enter new EUR rate (PKR per EUR): ",0
-msgNewSARStr    BYTE    "Enter new SAR rate (PKR per SAR): ",0
-msgRefillStr    BYTE    "Enter refill amount (PKR): ",0
+msgBalUSDStr     BYTE "Balance in USD (approx): ",0
+msgBalEURStr     BYTE "Balance in EUR (approx): ",0
+msgBalSARStr     BYTE "Balance in SAR (approx): ",0
 
-msgSuccessStr   BYTE    "Operation Successful.",0
-msgFailedStr    BYTE    "Operation Failed.",0
-msgInsuffStr    BYTE    "Insufficient Balance!",0
-msgWrongStr     BYTE    "Invalid Password / PIN!",0
-
-; Simple labels for currency output
-msgBalUSDStr    BYTE    "Balance in USD (approx): ",0
-msgBalEURStr    BYTE    "Balance in EUR (approx): ",0
-msgBalSARStr    BYTE    "Balance in SAR (approx): ",0
+; NEW ADMIN RATE VIEW STRINGS
+msgRateHeaderStr BYTE "---- Current Exchange Rates ----",0
+msgUSDRateStr    BYTE "USD Rate (PKR per USD): ",0
+msgEURRateStr    BYTE "EUR Rate (PKR per EUR): ",0
+msgSARRateStr    BYTE "SAR Rate (PKR per SAR): ",0
 
 .code
 main PROC
 
-; ----------------- MAIN MENU (entry) -----------------
 MainMenu:
     call Clrscr
     mov edx, OFFSET mainTitleStr
     call WriteString
-
     mov edx, OFFSET mainMenuStr
     call WriteString
-
-    call ReadInt                   ; EAX = main choice
+    call ReadInt
     cmp eax, 1
     je CustLogin
     cmp eax, 2
@@ -77,9 +78,9 @@ MainMenu:
     je ExitProgram
     jmp MainMenu
 
-; ----------------- CUSTOMER FLOW -----------------
+; ---------------- CUSTOMER ----------------
+
 CustLogin:
-    ; clear screen only when switching interface (Main -> Customer)
     call Clrscr
     mov edx, OFFSET msgEnterPINStr
     call WriteString
@@ -92,20 +93,14 @@ CustLoginFail:
     mov edx, OFFSET msgWrongStr
     call WriteString
     call CrLf
-
-    ; wait 1 second (1000 ms)
-    mov eax, 500        ; 1 second
+    mov eax, 500
     call Delay
-
-    jmp MainMenu      ; go straight back, no repeat
-
+    jmp MainMenu
 
 CustMenu:
-    ; do NOT clear screen here; we stay on the same interface
     mov edx, OFFSET custMenuStr
     call WriteString
-    call ReadInt                     ; EAX = customer choice
-
+    call ReadInt
     cmp eax, 1
     je CustShowBalance
     cmp eax, 2
@@ -115,7 +110,9 @@ CustMenu:
     cmp eax, 4
     je CustCurrencyMenu
     cmp eax, 5
-    je MainMenu                       ; switching interface -> clear happens at target
+    je CustViewRates
+    cmp eax, 6
+    je MainMenu
     jmp CustMenu
 
 CustShowBalance:
@@ -124,7 +121,6 @@ CustShowBalance:
     mov eax, balance
     call WriteDec
     call CrLf
-    ; show success-ish line to make action apparent
     mov edx, OFFSET msgSuccessStr
     call WriteString
     call CrLf
@@ -133,7 +129,7 @@ CustShowBalance:
 CustDeposit:
     mov edx, OFFSET msgDepositStr
     call WriteString
-    call ReadInt                       ; EAX = deposit amount
+    call ReadInt
     cmp eax, 0
     jle CustDepositFail
     add balance, eax
@@ -151,7 +147,7 @@ CustDepositFail:
 CustWithdraw:
     mov edx, OFFSET msgWithdrawStr
     call WriteString
-    call ReadInt                       ; EAX = withdraw amount
+    call ReadInt
     mov ebx, eax
     cmp ebx, 0
     jle CustWithdrawFail
@@ -176,15 +172,13 @@ CustInsufficient:
     call CrLf
     jmp CustMenu
 
-; Currency submenu (keeps same screen, no Clrscr)
 CustCurrencyMenu:
-    ; Show options inline (simple)
     mov edx, OFFSET msgBalUSDStr
     call WriteString
     mov eax, balance
     mov ebx, usdRate
     xor edx, edx
-    div ebx             ; EAX = balance / usdRate
+    div ebx
     call WriteDec
     call CrLf
 
@@ -211,9 +205,38 @@ CustCurrencyMenu:
     call CrLf
     jmp CustMenu
 
-; ----------------- ADMIN FLOW -----------------
+CustViewRates:
+    mov edx, OFFSET msgRateHeaderStr
+    call WriteString
+    call CrLf
+
+    mov edx, OFFSET msgUSDRateStr
+    call WriteString
+    mov eax, usdRate
+    call WriteDec
+    call CrLf
+
+    mov edx, OFFSET msgEURRateStr
+    call WriteString
+    mov eax, eurRate
+    call WriteDec
+    call CrLf
+
+    mov edx, OFFSET msgSARRateStr
+    call WriteString
+    mov eax, sarRate
+    call WriteDec
+    call CrLf
+
+    mov edx, OFFSET msgSuccessStr
+    call WriteString
+    call CrLf
+    jmp CustMenu
+
+
+; ---------------- ADMIN ----------------
+
 AdmLogin:
-    ; clear screen only when switching interface (Main -> Admin)
     call Clrscr
     mov edx, OFFSET msgEnterAdminStr
     call WriteString
@@ -226,18 +249,14 @@ AdmLoginFail:
     mov edx, OFFSET msgWrongStr
     call WriteString
     call CrLf
-
-    mov eax, 500        ; 1 second
+    mov eax, 500
     call Delay
-
-    jmp MainMenu ; go straight back, no repeat
-
+    jmp MainMenu
 
 AdmMenu:
     mov edx, OFFSET adminMenuStr
     call WriteString
-    call ReadInt                     ; EAX = admin choice
-
+    call ReadInt
     cmp eax, 1
     je AdmViewBalance
     cmp eax, 2
@@ -247,7 +266,9 @@ AdmMenu:
     cmp eax, 4
     je AdmRefill
     cmp eax, 5
-    je MainMenu                       ; switching interface
+    je AdmViewRates
+    cmp eax, 6
+    je MainMenu
     jmp AdmMenu
 
 AdmViewBalance:
@@ -265,7 +286,7 @@ AdmResetPIN:
     mov edx, OFFSET msgNewPINStr
     call WriteString
     call ReadInt
-    cmp eax, 1000                      ; simple check: 4 digits minimum
+    cmp eax, 1000
     jb AdmResetPINFail
     mov correctPIN, eax
     mov edx, OFFSET msgSuccessStr
@@ -283,31 +304,16 @@ AdmChangeRates:
     mov edx, OFFSET msgNewUSDStr
     call WriteString
     call ReadInt
-    cmp eax, 1
-    jb AdmChangeRatesFail
     mov usdRate, eax
-
     mov edx, OFFSET msgNewEURStr
     call WriteString
     call ReadInt
-    cmp eax, 1
-    jb AdmChangeRatesFail
     mov eurRate, eax
-
     mov edx, OFFSET msgNewSARStr
     call WriteString
     call ReadInt
-    cmp eax, 1
-    jb AdmChangeRatesFail
     mov sarRate, eax
-
     mov edx, OFFSET msgSuccessStr
-    call WriteString
-    call CrLf
-    jmp AdmMenu
-
-AdmChangeRatesFail:
-    mov edx, OFFSET msgFailedStr
     call WriteString
     call CrLf
     jmp AdmMenu
@@ -316,21 +322,41 @@ AdmRefill:
     mov edx, OFFSET msgRefillStr
     call WriteString
     call ReadInt
-    cmp eax, 0
-    jle AdmRefillFail
     add balance, eax
     mov edx, OFFSET msgSuccessStr
     call WriteString
     call CrLf
     jmp AdmMenu
 
-AdmRefillFail:
-    mov edx, OFFSET msgFailedStr
+; -------- NEW FEATURE --------
+AdmViewRates:
+    mov edx, OFFSET msgRateHeaderStr
+    call WriteString
+    call CrLf
+
+    mov edx, OFFSET msgUSDRateStr
+    call WriteString
+    mov eax, usdRate
+    call WriteDec
+    call CrLf
+
+    mov edx, OFFSET msgEURRateStr
+    call WriteString
+    mov eax, eurRate
+    call WriteDec
+    call CrLf
+
+    mov edx, OFFSET msgSARRateStr
+    call WriteString
+    mov eax, sarRate
+    call WriteDec
+    call CrLf
+
+    mov edx, OFFSET msgSuccessStr
     call WriteString
     call CrLf
     jmp AdmMenu
 
-; ----------------- EXIT -----------------
 ExitProgram:
     exit
 
