@@ -60,6 +60,10 @@ msgUSDRateStr    BYTE "USD Rate (PKR per USD): ",0
 msgEURRateStr    BYTE "EUR Rate (PKR per EUR): ",0
 msgSARRateStr    BYTE "SAR Rate (PKR per SAR): ",0
 
+pinAttempts DWORD 0
+msgRetryLimitStr BYTE "Retry limit reached. Returning to Main Menu.",0
+msgLoginSuccessStr BYTE "Login Successful. Redirecting to Customer Menu...",0
+
 .code
 main PROC
 
@@ -82,20 +86,41 @@ MainMenu:
 
 CustLogin:
     call Clrscr
+    mov pinAttempts, 0
+
+CustPINLoop:
     mov edx, OFFSET msgEnterPINStr
     call WriteString
     call ReadInt
     cmp eax, correctPIN
-    jne CustLoginFail
-    jmp CustMenu
+    je CustLoginSuccess
 
-CustLoginFail:
+    inc pinAttempts
+    cmp pinAttempts, 3
+    jl CustTryAgain
+
+    ; Retry limit reached (NO LOCK)
+    mov edx, OFFSET msgRetryLimitStr
+    call WriteString
+    call CrLf
+    mov eax, 1000
+    call Delay
+    jmp MainMenu
+
+CustTryAgain:
     mov edx, OFFSET msgWrongStr
     call WriteString
     call CrLf
-    mov eax, 500
+    jmp CustPINLoop
+
+CustLoginSuccess:
+    mov edx, OFFSET msgLoginSuccessStr
+    call WriteString
+    call CrLf
+    mov eax, 1000       ; 1 second delay
     call Delay
-    jmp MainMenu
+    call Clrscr
+    jmp CustMenu
 
 CustMenu:
     mov edx, OFFSET custMenuStr
