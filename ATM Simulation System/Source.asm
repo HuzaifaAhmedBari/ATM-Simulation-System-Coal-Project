@@ -61,7 +61,8 @@ INCLUDE Irvine32.inc
 
     pinAttempts DWORD 0
     msgRetryLimitStr BYTE "Retry limit reached. Returning to Main Menu.",0
-    msgLoginSuccessStr BYTE "Login Successful. Redirecting to Customer Menu...",0
+    msgCustLoginSuccess BYTE "Login Successful. Redirecting to Customer Menu...",0
+    msgAdminLoginSuccess BYTE "Login Successful. Redirecting to Admin Menu...",0
 
 .code
     main PROC
@@ -113,7 +114,7 @@ INCLUDE Irvine32.inc
         jmp CustPINLoop
 
     CustLoginSuccess:
-        mov edx, OFFSET msgLoginSuccessStr
+        mov edx, OFFSET msgCustLoginSuccess
         call WriteString
         call CrLf
         mov eax, 1000       ; 1 second delay
@@ -288,15 +289,24 @@ INCLUDE Irvine32.inc
         call ReadInt
         cmp eax, adminPass
         jne AdmLoginFail
-        jmp AdmMenu
+        jmp AdmLoginSuccess
 
     AdmLoginFail:
         mov edx, OFFSET msgWrongStr
         call WriteString
         call CrLf
-        mov eax, 500
+        mov eax, 1000
         call Delay
         jmp MainMenu
+
+    AdmLoginSuccess:
+        mov edx, OFFSET msgAdminLoginSuccess
+        call WriteString
+        call CrLf
+        mov eax, 1000       ; 1 second delay
+        call Delay
+        call Clrscr
+        jmp AdmMenu
 
     AdmMenu:
         mov edx, OFFSET adminMenuStr
